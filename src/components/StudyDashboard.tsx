@@ -1,0 +1,241 @@
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { NotesGrid } from './NotesGrid';
+import { UploadModal } from './UploadModal';
+import { ChatInterface } from './ChatInterface';
+import { QuizInterface } from './QuizInterface';
+import { 
+  GraduationCap, 
+  LogOut, 
+  Brain, 
+  MessageSquare, 
+  BookOpen,
+  ArrowLeft,
+  TrendingUp
+} from 'lucide-react';
+import { Note } from '@/types';
+import { apiClient } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
+
+interface StudyDashboardProps {
+  onLogout: () => void;
+}
+
+type ViewMode = 'dashboard' | 'chat' | 'quiz';
+
+export function StudyDashboard({ onLogout }: StudyDashboardProps) {
+  const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
+  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [stats, setStats] = useState({ totalNotes: 0, quizzesTaken: 0, conversations: 0 });
+  const { toast } = useToast();
+
+  useEffect(() => {
+    loadStats();
+  }, [refreshKey]);
+
+  const loadStats = async () => {
+    try {
+      const notes = await apiClient.getNotes();
+      
+      setStats({
+        totalNotes: notes?.length || 0,
+        quizzesTaken: 0, // This would come from a dedicated stats endpoint
+        conversations: 0, // This would come from a dedicated stats endpoint
+      });
+    } catch (error) {
+      console.error('Failed to load stats:', error);
+    }
+  };
+
+  const handleNoteSelect = (note: Note) => {
+    setSelectedNote(note);
+  };
+
+  const handleChatWithNote = (note: Note) => {
+    setSelectedNote(note);
+    setViewMode('chat');
+  };
+
+  const handleQuizWithNote = (note: Note) => {
+    setSelectedNote(note);
+    setViewMode('quiz');
+  };
+
+  const handleBackToDashboard = () => {
+    setViewMode('dashboard');
+    setSelectedNote(null);
+    setRefreshKey(prev => prev + 1); // Refresh stats when returning
+  };
+
+  const handleUploadSuccess = () => {
+    setRefreshKey(prev => prev + 1);
+    toast({
+      title: 'Note uploaded successfully!',
+      description: 'Your study material is ready for AI-powered learning.',
+    });
+  };
+
+  const handleLogout = () => {
+    apiClient.logout();
+    onLogout();
+    toast({
+      title: 'Logged out',
+      description: 'Come back soon to continue learning!',
+    });
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-background">
+      {/* Header */}
+      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-40 animate-slide-in-left">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            {viewMode !== 'dashboard' && (
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={handleBackToDashboard}
+                className="animate-button"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            )}
+            <div className="flex items-center space-x-2">
+              <div className="p-2 rounded-lg bg-gradient-primary animate-float">
+                <GraduationCap className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h1 className="font-bold text-lg">Learn With AI</h1>
+                {selectedNote && (
+                  <p className="text-sm text-muted-foreground truncate max-w-xs">
+                    {selectedNote.title || selectedNote.filename}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            {selectedNote && viewMode === 'dashboard' && (
+              <>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => handleChatWithNote(selectedNote)}
+                  className="gap-2"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  Chat
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => handleQuizWithNote(selectedNote)}
+                  className="gap-2"
+                >
+                  <Brain className="h-4 w-4" />
+                  Quiz
+                </Button>
+              </>
+            )}
+            <Button variant="ghost" onClick={handleLogout} className="gap-2">
+              <LogOut className="h-4 w-4" />
+              Logout
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-8">
+        {viewMode === 'dashboard' && (
+          <div className="space-y-8">
+            {/* Welcome Section */}
+            <div className="text-center space-y-4 animate-fade-in-up">
+              <h2 className="text-3xl font-bold tracking-tight animate-stagger-1">
+                Welcome to your Study Space
+              </h2>
+              <p className="text-xl text-muted-foreground max-w-2xl mx-auto animate-stagger-2">
+                Upload your study materials and let AI help you learn faster with personalized quizzes and instant answers.
+              </p>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="shadow-card animate-card animate-fade-in-up animate-stagger-1">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Notes</CardTitle>
+                  <BookOpen className="h-4 w-4 text-muted-foreground animate-pulse-glow" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.totalNotes}</div>
+                  <p className="text-xs text-muted-foreground">
+                    <TrendingUp className="h-3 w-3 inline mr-1" />
+                    Ready for learning
+                  </p>
+                </CardContent>
+              </Card>
+              
+              <Card className="shadow-card animate-card animate-fade-in-up animate-stagger-2">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">AI Chats</CardTitle>
+                  <MessageSquare className="h-4 w-4 text-muted-foreground animate-bounce-gentle" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.conversations}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Get instant answers
+                  </p>
+                </CardContent>
+              </Card>
+              
+              <Card className="shadow-card animate-card animate-fade-in-up animate-stagger-3">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Quizzes Generated</CardTitle>
+                  <Brain className="h-4 w-4 text-muted-foreground animate-float" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.quizzesTaken}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Test your knowledge
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Notes Grid */}
+            <NotesGrid 
+              key={refreshKey}
+              onNoteSelect={handleNoteSelect}
+              onUploadClick={() => setIsUploadModalOpen(true)}
+            />
+          </div>
+        )}
+
+        {viewMode === 'chat' && selectedNote && (
+          <ChatInterface 
+            note={selectedNote}
+            onBack={handleBackToDashboard}
+          />
+        )}
+
+        {viewMode === 'quiz' && selectedNote && (
+          <QuizInterface 
+            note={selectedNote}
+            onBack={handleBackToDashboard}
+          />
+        )}
+      </main>
+
+      {/* Upload Modal */}
+      <UploadModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        onSuccess={handleUploadSuccess}
+      />
+    </div>
+  );
+}
